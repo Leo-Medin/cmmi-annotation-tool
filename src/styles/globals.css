@@ -18,15 +18,43 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.app-wrapper {
+.main-area-wrapper {
   display: flex;
 }
 
 .canvas-panel {
   width: 80%;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
 }
 
 .right-panel {
   width: 20%;
   border: 1px solid lightgrey;
+}
+
+.topbar {
+  height: 40px;
+}
+
+.annotation {
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin: 5px;
+  padding: 5px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.annotation-class {
+  width: fit-content;
+  padding: 3px;
+}
+
+.annotations-list {
+  max-height: 100%;
+  overflow-y: scroll;
 }

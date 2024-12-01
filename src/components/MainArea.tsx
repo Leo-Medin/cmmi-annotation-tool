@@ -1,17 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
-
-type ShapeType = 'rectangle' | 'circle';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, ChangeEvent } from 'react';
+import { ModeType, ShapeType } from '@/utils/appTypes';
 
 type ShapeDef = { type: ShapeType; x: number; y: number; width?: number; height?: number; radius?: number }
-type AnnotationDef = { shape: ShapeDef, class: string, description: string }
+type AnnotationDef = { shape: ShapeDef, organismClass: string, color: string, description: string, selected: false }
 
-const MainPage: React.FC = () => {
+const organismClasses = [
+  {
+    organismClass: 'organism A',
+    color: 'red'
+  },
+  {
+    organismClass: 'organism B',
+    color: 'blue'
+  },
+  {
+    organismClass: 'organism C',
+    color: 'green'
+  },
+]
+
+const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: ShapeType }, ref) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [shapeType, setShapeType] = useState<ShapeType>('rectangle');
   const [annotations, setAnnotations] = useState<Array<AnnotationDef>>([]);
   const [zoom, setZoom] = useState(1); // Zoom level
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }); // Pan offsets
-  const [mode, setMode] = useState<'draw' | 'pan'>('draw'); // Current mode: draw or pan
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0 }); // Starting position for panning
@@ -19,7 +31,8 @@ const MainPage: React.FC = () => {
   const startCoords = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [innerWidth, setInnerWidth] = useState(600);
-  console.log('annotations:', annotations)
+  const [innerHeight, setInnerHeight] = useState(600);
+  // console.log('annotations:', annotations)
 
   const [imageDimensions, setImageDimensions] = useState<{
     width: number;
@@ -28,41 +41,64 @@ const MainPage: React.FC = () => {
     offsetY: number;
   }>({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
 
+  useEffect(()=>{
+    isDrawing.current = false; // Reset drawing state when switching modes
+  },[shapeType])
+
+  const handleNew = () => {
+    setImageSrc(null)
+    setAnnotations([])
+    setZoom(1)
+    setPanOffset({ x: 0, y: 0 })
+    imageRef.current = null; 
+  }
+
+  useImperativeHandle(ref, () => ({
+    handleNew, // Expose handleNew function to parent
+    importAnnotations,
+    exportAnnotations
+  }));
+
+  const loadImage = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const img = new Image();
+        img.src = event.target.result as string;
+        img.onload = () => {
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const aspectRatio = img.width / img.height;
+
+            let displayWidth = canvasWidth;
+            let displayHeight = canvasHeight;
+
+            if (aspectRatio > 1) {
+              displayHeight = canvasWidth / aspectRatio;
+            } else {
+              displayWidth = canvasHeight * aspectRatio;
+            }
+
+            const offsetX = (canvasWidth - displayWidth) / 2;
+            const offsetY = (canvasHeight - displayHeight) / 2;
+
+            setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
+            setImageSrc(event.target?.result as string);
+          }
+        };
+      }
+    };
+    reader.readAsDataURL(file);
+
+  }
+
   // Handle file input
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const img = new Image();
-          img.src = event.target.result as string;
-          img.onload = () => {
-            const canvas = canvasRef.current;
-            if (canvas) {
-              const canvasWidth = canvas.width;
-              const canvasHeight = canvas.height;
-              const aspectRatio = img.width / img.height;
-
-              let displayWidth = canvasWidth;
-              let displayHeight = canvasHeight;
-
-              if (aspectRatio > 1) {
-                displayHeight = canvasWidth / aspectRatio;
-              } else {
-                displayWidth = canvasHeight * aspectRatio;
-              }
-
-              const offsetX = (canvasWidth - displayWidth) / 2;
-              const offsetY = (canvasHeight - displayHeight) / 2;
-
-              setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
-              setImageSrc(event.target?.result as string);
-            }
-          };
-        }
-      };
-      reader.readAsDataURL(file);
+      loadImage(file)
     }
   };
 
@@ -90,12 +126,12 @@ const MainPage: React.FC = () => {
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (mode === 'pan') handleZoom(-e.deltaY * 0.001, e.clientX, e.clientY); // Adjust zoom based on scroll
+    if (mode === 'pan-zoom') handleZoom(-e.deltaY * 0.001, e.clientX, e.clientY); // Adjust zoom based on scroll
   };
 
   // Handle panning
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (mode === 'pan') {
+    if (mode === 'pan-zoom') {
       isPanning.current = true;
       panStart.current = { x: e.clientX, y: e.clientY };
     } 
@@ -105,8 +141,6 @@ const MainPage: React.FC = () => {
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
-      // const x = e.clientX - rect.left;
-      // const y = e.clientY - rect.top;
 
       // Get mouse position relative to canvas
       const x = (e.clientX - rect.left - panOffset.x) / zoom;
@@ -117,7 +151,7 @@ const MainPage: React.FC = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (mode === 'pan' && isPanning.current) {
+    if (mode === 'pan-zoom' && isPanning.current) {
       const deltaX = e.clientX - panStart.current.x;
       const deltaY = e.clientY - panStart.current.y;
   
@@ -135,12 +169,7 @@ const MainPage: React.FC = () => {
       const rect = canvas.getBoundingClientRect();
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-  
-      // const x = e.clientX - rect.left;
-      // const y = e.clientY - rect.top;
-      // const x = (e.clientX - rect.left - panOffset.x) / zoom;
-      // const y = (e.clientY - rect.top - panOffset.y) / zoom;
-      
+        
       // Adjust mouse position relative to canvas
       const x = (e.clientX - rect.left - panOffset.x) / zoom;
       const y = (e.clientY - rect.top - panOffset.y) / zoom;
@@ -171,7 +200,8 @@ const MainPage: React.FC = () => {
   // Function to draw all shapes
   const drawShapes = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
     // Draw all existing shapes
-    annotations.forEach(({shape}) => {
+    annotations.forEach(({shape, color}) => {
+      ctx.strokeStyle = color;
       if (shape.type === 'rectangle') {
         ctx.beginPath();
         ctx.rect(shape.x, shape.y, shape.width as number, shape.height as number);
@@ -201,7 +231,7 @@ const MainPage: React.FC = () => {
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (mode === 'pan') {
+    if (mode === 'pan-zoom') {
       isPanning.current = false;
     } 
     else if (mode === 'draw' && isDrawing.current) {
@@ -232,10 +262,20 @@ const MainPage: React.FC = () => {
         const radius = Math.sqrt(Math.pow(x - startCoords.current.x, 2) + Math.pow(y - startCoords.current.y, 2));
         shape = { type: 'circle', x: startCoords.current.x, y: startCoords.current.y, radius };
       }
-      setAnnotations((prev) => [
-        ...prev,
-        { shape, class: 'Organism A', description: `#${annotations.length+1}`}
+      const randomOrganismClass = organismClasses[Math.floor(Math.random() * organismClasses.length)];
+      const tmpAnnotations = JSON.parse(JSON.stringify(annotations)); // deep clone
+      tmpAnnotations.forEach((element: AnnotationDef) => {
+        element.selected = false; // deselect everything
+      });
+      // setAnnotations((prev) => [
+      //   ...prev,
+      //   { shape, organismClass: randomOrganismClass.organismClass, color: randomOrganismClass.color, description: `#${annotations.length+1}`}
+      // ]);
+      setAnnotations([
+        ...tmpAnnotations,
+        { shape, organismClass: randomOrganismClass.organismClass, color: randomOrganismClass.color, description: `#${annotations.length+1}`, selected: true}
       ]);
+
     }
     isDrawing.current = false;
   };
@@ -262,9 +302,9 @@ const MainPage: React.FC = () => {
       ctx.drawImage(img, imageDimensions.offsetX, imageDimensions.offsetY, width, height);
 
       // Draw all shapes
-      annotations.forEach(({shape}) => {
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 2 / zoom; // Adjust line width for zoom
+      annotations.forEach(({shape, color, selected}) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = (selected? 8: 2) / zoom; // Adjust line width for zoom
         if (shape.type === 'rectangle') {
           ctx.beginPath();
           ctx.rect(shape.x, shape.y, shape.width as number, shape.height as number);
@@ -287,6 +327,10 @@ const MainPage: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (ctx) redrawCanvas(ctx);
     }
+    else if (canvas) { // no image => clear canvas
+      const ctx = canvas.getContext('2d');  
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);      
+    }
   }, [annotations, imageSrc, panOffset, zoom]);
 
   useEffect(()=>{
@@ -295,14 +339,15 @@ const MainPage: React.FC = () => {
       const tmpInnerHeight = window.visualViewport? window.visualViewport.height: window.innerHeight; 
       setInnerWidth(tmpInnerWidth);
       canvasRef.current.width = tmpInnerWidth*77/100;
-      canvasRef.current.height = tmpInnerHeight*60/100;
+      canvasRef.current.height = tmpInnerHeight*92/100;
+      setInnerHeight(tmpInnerHeight - 40); // minus topbar height
     }
   }, [])
 
   // Handle keyboard events for zoom and pan
   const handleKeyDown = (e: KeyboardEvent) => {
     // Pan with arrow keys
-    if (mode === 'pan') {
+    if (mode === 'pan-zoom') {
       if (e.key === 'ArrowUp') {
         setPanOffset((prev) => ({ x: prev.x, y: prev.y - 10 }));
       } else if (e.key === 'ArrowDown') {
@@ -343,7 +388,7 @@ const MainPage: React.FC = () => {
                 height: annotation.shape.height ? annotation.shape.height * zoom : undefined,
                 radius: annotation.shape.radius ? annotation.shape.radius * zoom : undefined,
             },
-            class: annotation.class,
+            class: annotation.organismClass,
             description: annotation.description
         };
     });
@@ -364,8 +409,11 @@ const MainPage: React.FC = () => {
   };
   
   const handleJSONFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('e:', e)
     const file = e.target.files?.[0];
+    console.log('file:', file)
     if (file) {
+        console.log('file:', file)
         const reader = new FileReader();
         reader.onload = (event) => {
             if (event.target?.result) {
@@ -384,77 +432,135 @@ const MainPage: React.FC = () => {
     }
   };
 
+  // Handle file drag-and-drop
+  const handleFileDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      loadImage(file)
+    }
+  };
+
+  const importAnnotations = ()=>{
+    console.log('importAnnotations()')
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept='.json'
+      input.addEventListener('change', (event: Event) => {
+        const target = event.target as HTMLInputElement;
+
+        // Create a mock ChangeEvent
+        const changeEvent = {
+          ...event,
+          target,
+          currentTarget: target,
+          bubbles: true,
+          cancelBubble: false,
+          cancelable: true,
+          composed: true,
+          defaultPrevented: false,
+          isDefaultPrevented: () => false,
+          isPropagationStopped: () => false,
+          persist: () => {}
+        } as unknown as ChangeEvent<HTMLInputElement>;
+
+        handleJSONFileInput(changeEvent);
+      });
+      input.click()
+  }
+
   const AnnotationsList = () => {
     return (
       <div className='annotations-list'>
-        <input
+        {/* <input
             type="file"
             accept=".json"
             onChange={handleJSONFileInput}
-        />
+        /> */}
+        {/* <button onClick={importAnnotations}
+        >Button!</button> */}
 
-        {annotations.map(({ description }, index: number)=>(
-          <div key={index} className='annotation'>
-            {description}
+        {annotations.map(({ description, organismClass, color, selected }, index: number)=>(
+          <div 
+            key={index} 
+            className='annotation' 
+            style={{ borderWidth: selected? '5px': '' }}
+            onClick={()=>{
+              const tmpAnnotations = JSON.parse(JSON.stringify(annotations)); // deep clone
+              tmpAnnotations.forEach((element: AnnotationDef) => {
+                element.selected = false; // deselect everything
+              });
+              tmpAnnotations[index].selected = true;
+              setAnnotations(tmpAnnotations)
+            }}
+          >
+            <div>{description}</div>
+            <div className='annotation-class' style={{ backgroundColor: color }}>{organismClass}</div>
           </div>
         ))}
-        <button onClick={exportAnnotations}>Export Annotations</button>
+        {/* <button onClick={exportAnnotations}>Export Annotations</button> */}
       </div>
     )
   }
 
   return (
-    <div className='app-wrapper'>
-      <div className='canvas-panel'>
-        <div>
-          {/* File Input */}
-          <div style={{ marginBottom: '20px' }}>
-            <input
-              type='file'
-              accept='image/*'
-              onChange={handleFileInput}
-              style={{ display: 'block', marginBottom: '10px' }}
-            />
-            <span>Choose a shape:</span>
-            <select
-              value={shapeType}
-              onChange={(e) => {
-                setShapeType(e.target.value as ShapeType);
-                isDrawing.current = false; // Reset drawing state when switching modes
-              }}
-              style={{ marginLeft: '10px' }}
-            >
-              <option value='rectangle'>Rectangle</option>
-              <option value='circle'>Circle</option>
-            </select>
-          </div>
+    <div className='main-area-wrapper' style={{ height: innerHeight }}>
+      <div className='canvas-panel' >
 
           {/* Zoom controls */}
-          <span>Zoom: </span>
+          {/* <span>Zoom: </span>
           <button onClick={() => handleZoom(0.1, 400, 300)}>+</button>
-          <button onClick={() => handleZoom(-0.1, 400, 300)}>-</button>
-
-          {/* Mode Switch */}
-          <div>
-            <button onClick={() => setMode('draw')}>Draw Mode</button>
-            <button onClick={() => setMode('pan')}>Pan Mode</button>
-          </div>
+          <button onClick={() => handleZoom(-0.1, 400, 300)}>-</button> */}
 
           {/* Canvas */}
           <canvas
             ref={canvasRef}
-            // width={800}
-            // height={600}
             style={{
-              border: '1px solid #ddd',
-              cursor: mode === 'pan' ? 'grab' : 'crosshair',
+              cursor: mode === 'pan-zoom' ? 'grab' : 'crosshair',
+              display: !imageSrc? 'none': ''
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onWheel={handleWheel}
           />
-        </div>
+
+          {/* File Drag-and-Drop Area */}
+          {!imageSrc &&
+            <div
+              className='file-dropper'
+              onDragOver={handleFileDragOver}
+              onDrop={handleFileDrop}
+              // onDrop={handleFileInput}
+              style={{
+                border: '2px dashed #ccc',
+                borderRadius: '10px',
+                padding: '20px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                margin: '16px'
+              }}
+            >
+              <p>Drag and drop an image here, or click below to upload.</p>
+
+              {/* File Input */}
+              <div style={{ margin: '20px', display: 'flex', justifyContent: 'space-around' }}>
+                <input
+                  type='file'
+                  accept='image/*'
+                  onChange={handleFileInput}
+                  style={{ display: 'block', marginBottom: '10px' }}
+                />
+              </div>
+            </div>
+          }
+
 
       </div>
 
@@ -464,6 +570,8 @@ const MainPage: React.FC = () => {
 
     </div>
   );
-};
+});
 
-export default MainPage;
+MainArea.displayName = 'MainArea'; // ESLint requires this attribute for components created with forwardRef
+
+export default MainArea;

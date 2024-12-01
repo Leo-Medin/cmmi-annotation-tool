@@ -35,7 +35,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy to AWS Amplify
 
-This project was deployed on AWS Amplify. Here is a 3-step tutorial on how to deploy (https://docs.aws.amazon.com/amplify/latest/userguide/getting-started-next.html)
+This project was deployed on AWS Amplify. Here is a 3-step tutorial on how to connect your repository and deploy (https://docs.aws.amazon.com/amplify/latest/userguide/getting-started-next.html)
+From now on, every push to main branch will initiate an automatic deployment on AWS.
 
 ## Deploy on Vercel
 
