@@ -109,8 +109,8 @@ const MainPage: React.FC = () => {
       // const y = e.clientY - rect.top;
 
       // Get mouse position relative to canvas
-      let x = (e.clientX - rect.left - panOffset.x) / zoom;
-      let y = (e.clientY - rect.top - panOffset.y) / zoom;
+      const x = (e.clientX - rect.left - panOffset.x) / zoom;
+      const y = (e.clientY - rect.top - panOffset.y) / zoom;
 
       startCoords.current = { x, y };
     }
@@ -142,12 +142,8 @@ const MainPage: React.FC = () => {
       // const y = (e.clientY - rect.top - panOffset.y) / zoom;
       
       // Adjust mouse position relative to canvas
-      let x = (e.clientX - rect.left - panOffset.x) / zoom;
-      let y = (e.clientY - rect.top - panOffset.y) / zoom;
-
-        // Calculate width and height for the rectangle (or other shape)
-        const width = x - startCoords.current.x;
-        const height = y - startCoords.current.y;
+      const x = (e.clientX - rect.left - panOffset.x) / zoom;
+      const y = (e.clientY - rect.top - panOffset.y) / zoom;
 
       // Apply zoom and pan transformations
       ctx.save();
