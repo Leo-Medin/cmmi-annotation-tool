@@ -1,23 +1,8 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, ChangeEvent } from 'react';
-import { ModeType, ShapeType } from '@/utils/appTypes';
-
-type ShapeDef = { type: ShapeType; x: number; y: number; width?: number; height?: number; radius?: number }
-type AnnotationDef = { shape: ShapeDef, organismClass: string, color: string, description: string, selected: false }
-
-const organismClasses = [
-  {
-    organismClass: 'organism A',
-    color: 'red'
-  },
-  {
-    organismClass: 'organism B',
-    color: 'blue'
-  },
-  {
-    organismClass: 'organism C',
-    color: 'green'
-  },
-]
+import { ModeType, ShapeType, Severity, AnnotationDef, ShapeDef } from '@/utils/appTypes';
+import { Snackbar, Alert } from '@mui/material';
+import AnnotationsList from './AnnotationsList';
+import { organismClasses } from '@/utils/appConstants';
 
 const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: ShapeType }, ref) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -32,7 +17,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [innerWidth, setInnerWidth] = useState(600);
   const [innerHeight, setInnerHeight] = useState(600);
-  // console.log('annotations:', annotations)
+  const [snackbar, setSnackbar] = useState<{ children: string; severity: Severity } | null>(null)
 
   const [imageDimensions, setImageDimensions] = useState<{
     width: number;
@@ -44,6 +29,14 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   useEffect(()=>{
     isDrawing.current = false; // Reset drawing state when switching modes
   },[shapeType])
+
+  useEffect(()=>{
+    if (mode === 'pan-zoom') setSnackbar({ children: 'Use the mouse: Drag to pan, scroll the wheel to zoom.', severity: 'info' })
+    else if (mode === 'draw') {
+      if (shapeType === 'rectangle') setSnackbar({ children: 'Place the cursor at one corner of the area, press the mouse button, and drag to the desired size.', severity: 'info' })
+      if (shapeType === 'circle') setSnackbar({ children: 'Place the cursor at the center of the area, press the mouse button, and drag to the desired size.', severity: 'info' })
+    }
+  },[mode, shapeType])
 
   const handleNew = () => {
     setImageSrc(null)
@@ -273,7 +266,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
       // ]);
       setAnnotations([
         ...tmpAnnotations,
-        { shape, organismClass: randomOrganismClass.organismClass, color: randomOrganismClass.color, description: `#${annotations.length+1}`, selected: true}
+        { shape, organismClass: randomOrganismClass.organismClass, color: randomOrganismClass.color, description: '', selected: true}
       ]);
 
     }
@@ -475,39 +468,6 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
       input.click()
   }
 
-  const AnnotationsList = () => {
-    return (
-      <div className='annotations-list'>
-        {/* <input
-            type="file"
-            accept=".json"
-            onChange={handleJSONFileInput}
-        /> */}
-        {/* <button onClick={importAnnotations}
-        >Button!</button> */}
-
-        {annotations.map(({ description, organismClass, color, selected }, index: number)=>(
-          <div 
-            key={index} 
-            className='annotation' 
-            style={{ borderWidth: selected? '5px': '' }}
-            onClick={()=>{
-              const tmpAnnotations = JSON.parse(JSON.stringify(annotations)); // deep clone
-              tmpAnnotations.forEach((element: AnnotationDef) => {
-                element.selected = false; // deselect everything
-              });
-              tmpAnnotations[index].selected = true;
-              setAnnotations(tmpAnnotations)
-            }}
-          >
-            <div>{description}</div>
-            <div className='annotation-class' style={{ backgroundColor: color }}>{organismClass}</div>
-          </div>
-        ))}
-        {/* <button onClick={exportAnnotations}>Export Annotations</button> */}
-      </div>
-    )
-  }
 
   return (
     <div className='main-area-wrapper' style={{ height: innerHeight }}>
@@ -565,9 +525,19 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
       </div>
 
       <div className='right-panel' style={{ width: innerWidth*20/100 }}>
-        <AnnotationsList />
+        <AnnotationsList annotations={annotations} setAnnotations={setAnnotations} />
       </div>
 
+      {!!snackbar && (
+        <Snackbar
+          open
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          onClose={() => setSnackbar(null)}
+          autoHideDuration={6000}
+        >
+          <Alert {...snackbar} onClose={() => setSnackbar(null)} />
+        </Snackbar>
+      )}
     </div>
   );
 });
