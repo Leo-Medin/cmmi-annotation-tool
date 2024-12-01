@@ -80,3 +80,14 @@ body {
   color: white;
   font-size: 12px;
 }
+
+.annotations-title {
+  text-align: center;
+  margin: 5px;
+}
+
+.annotation-description {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}

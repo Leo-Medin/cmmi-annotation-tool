@@ -12,6 +12,9 @@ const AnnotationsList = ({ annotations, setAnnotations }: { annotations: Annotat
 
     return (
       <div className='annotations-list'>
+        <div className='annotations-title'>
+            Annotations
+        </div>
 
         {annotations.map(({ description, organismClass, color, selected }, index: number)=>(
           <div 
@@ -59,7 +62,8 @@ const AnnotationsList = ({ annotations, setAnnotations }: { annotations: Annotat
                   setEditSelectedIndex(index);
                 }}
               />
-              <div>{description}</div>
+              <div className='annotation-description'>{description}</div>
+
             </div>
 
             {editSelectedIndex === index &&

@@ -12,12 +12,14 @@
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.5",
     "@mui/material": "^6.1.9",
+    "aws-sdk": "^2.1692.0",
     "i": "^0.3.7",
     "mdi-material-ui": "^7.9.2",
     "next": "15.0.3",
     "npm": "^10.9.1",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@types/node": "^20",

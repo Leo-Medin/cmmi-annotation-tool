@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, ChangeEvent } from 'react';
 import { ModeType, ShapeType, Severity, AnnotationDef, ShapeDef } from '@/utils/appTypes';
-import { Snackbar, Alert } from '@mui/material';
+import { Snackbar, Alert, Button } from '@mui/material';
 import AnnotationsList from './AnnotationsList';
 import { organismClasses } from '@/utils/appConstants';
+import { uploadFile } from '@/utils/cloud-storage-functions'
 
 const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: ShapeType }, ref) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -18,6 +19,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   const [innerWidth, setInnerWidth] = useState(600);
   const [innerHeight, setInnerHeight] = useState(600);
   const [snackbar, setSnackbar] = useState<{ children: string; severity: Severity } | null>(null)
+  // const [isLoading, setIsLoading] = useState(false)
 
   const [imageDimensions, setImageDimensions] = useState<{
     width: number;
@@ -31,11 +33,14 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   },[shapeType])
 
   useEffect(()=>{
-    if (mode === 'pan-zoom') setSnackbar({ children: 'Use the mouse: Drag to pan, scroll the wheel to zoom.', severity: 'info' })
-    else if (mode === 'draw') {
-      if (shapeType === 'rectangle') setSnackbar({ children: 'Place the cursor at one corner of the area, press the mouse button, and drag to the desired size.', severity: 'info' })
-      if (shapeType === 'circle') setSnackbar({ children: 'Place the cursor at the center of the area, press the mouse button, and drag to the desired size.', severity: 'info' })
+    if (imageSrc) {
+      if (mode === 'pan-zoom') setSnackbar({ children: 'Use the mouse: Drag to pan, scroll the wheel to zoom.', severity: 'info' })
+      else if (mode === 'draw') {
+        if (shapeType === 'rectangle') setSnackbar({ children: 'Place the cursor at one corner of the area, press the mouse button, and drag to the desired size.', severity: 'info' })
+        if (shapeType === 'circle') setSnackbar({ children: 'Place the cursor at the center of the area, press the mouse button, and drag to the desired size.', severity: 'info' })
+      }
     }
+    else setSnackbar({ children: 'Kindly add the image first.', severity: 'info' })
   },[mode, shapeType])
 
   const handleNew = () => {
@@ -52,48 +57,48 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     exportAnnotations
   }));
 
-  const loadImage = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        const img = new Image();
-        img.src = event.target.result as string;
-        img.onload = () => {
-          const canvas = canvasRef.current;
-          if (canvas) {
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const aspectRatio = img.width / img.height;
+  // const loadImage = (file: File) => {
+  //   const reader = new FileReader();
+  //   reader.onload = (event) => {
+  //     if (event.target?.result) {
+  //       const img = new Image();
+  //       img.src = event.target.result as string;
+  //       img.onload = () => {
+  //         const canvas = canvasRef.current;
+  //         if (canvas) {
+  //           const canvasWidth = canvas.width;
+  //           const canvasHeight = canvas.height;
+  //           const aspectRatio = img.width / img.height;
 
-            let displayWidth = canvasWidth;
-            let displayHeight = canvasHeight;
+  //           let displayWidth = canvasWidth;
+  //           let displayHeight = canvasHeight;
 
-            if (aspectRatio > 1) {
-              displayHeight = canvasWidth / aspectRatio;
-            } else {
-              displayWidth = canvasHeight * aspectRatio;
-            }
+  //           if (aspectRatio > 1) {
+  //             displayHeight = canvasWidth / aspectRatio;
+  //           } else {
+  //             displayWidth = canvasHeight * aspectRatio;
+  //           }
 
-            const offsetX = (canvasWidth - displayWidth) / 2;
-            const offsetY = (canvasHeight - displayHeight) / 2;
+  //           const offsetX = (canvasWidth - displayWidth) / 2;
+  //           const offsetY = (canvasHeight - displayHeight) / 2;
 
-            setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
-            setImageSrc(event.target?.result as string);
-          }
-        };
-      }
-    };
-    reader.readAsDataURL(file);
+  //           setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
+  //           setImageSrc(event.target?.result as string);
+  //         }
+  //       };
+  //     }
+  //   };
+  //   reader.readAsDataURL(file);
 
-  }
+  // }
 
   // Handle file input
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = e.target.files?.[0];
-    if (file) {
-      loadImage(file)
-    }
-  };
+  // const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  //   const file = e.target.files?.[0];
+  //   if (file) {
+  //     loadImage(file)
+  //   }
+  // };
 
   // Handle zoom
   const handleZoom = (delta: number, centerX: number, centerY: number) => {
@@ -260,10 +265,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
       tmpAnnotations.forEach((element: AnnotationDef) => {
         element.selected = false; // deselect everything
       });
-      // setAnnotations((prev) => [
-      //   ...prev,
-      //   { shape, organismClass: randomOrganismClass.organismClass, color: randomOrganismClass.color, description: `#${annotations.length+1}`}
-      // ]);
+
       setAnnotations([
         ...tmpAnnotations,
         { shape, organismClass: randomOrganismClass.organismClass, color: randomOrganismClass.color, description: '', selected: true}
@@ -371,23 +373,42 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   }, [zoom, panOffset]);
 
   const exportAnnotations = () => {
+    if (!imageSrc) {
+      setSnackbar({ children: 'Kindly add the image first.', severity: 'info' })
+
+      return;
+    }
+
     const annotationsToExport = annotations.map((annotation) => {
         return {
             shape: {
                 type: annotation.shape.type,
-                x: annotation.shape.x * zoom + panOffset.x,  // Adjust position with zoom and pan
-                y: annotation.shape.y * zoom + panOffset.y,
-                width: annotation.shape.width ? annotation.shape.width * zoom : undefined,  // Adjust size with zoom
-                height: annotation.shape.height ? annotation.shape.height * zoom : undefined,
-                radius: annotation.shape.radius ? annotation.shape.radius * zoom : undefined,
+                // x: annotation.shape.x * zoom + panOffset.x,  // Adjust position with zoom and pan
+                // y: annotation.shape.y * zoom + panOffset.y,
+                // width: annotation.shape.width ? annotation.shape.width * zoom : undefined,  // Adjust size with zoom
+                // height: annotation.shape.height ? annotation.shape.height * zoom : undefined,
+                // radius: annotation.shape.radius ? annotation.shape.radius * zoom : undefined,
+                x: annotation.shape.x,  // Adjust position with zoom and pan
+                y: annotation.shape.y,
+                width: annotation.shape.width ? annotation.shape.width : undefined,  // Adjust size with zoom
+                height: annotation.shape.height ? annotation.shape.height : undefined,
+                radius: annotation.shape.radius ? annotation.shape.radius : undefined,
             },
-            class: annotation.organismClass,
+            organismClass: annotation.organismClass,
+            color: annotation.color,
             description: annotation.description
         };
     });
+    const dataToExport = {
+      imageURL: imageSrc,
+      zoom,
+      panOffset,
+      annotations: annotationsToExport
+    }
 
     // Convert annotations to JSON
-    const json = JSON.stringify(annotationsToExport, null, 2); // Pretty-print with 2 spaces
+    // const json = JSON.stringify(annotationsToExport, null, 2); // Pretty-print with 2 spaces
+    const json = JSON.stringify(dataToExport, null, 2); // Pretty-print with 2 spaces
 
     // Create a Blob with the JSON data
     const blob = new Blob([json], { type: 'application/json' });
@@ -402,7 +423,6 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   };
   
   const handleJSONFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('e:', e)
     const file = e.target.files?.[0];
     console.log('file:', file)
     if (file) {
@@ -412,9 +432,13 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
             if (event.target?.result) {
                 try {
                     // Parse the JSON data
-                    const annotationsData = JSON.parse(event.target.result as string);
+                    const data = JSON.parse(event.target.result as string);
 
-                    setAnnotations(annotationsData)
+                    setAnnotations(data.annotations)
+                    // setImageSrc(data.imageURL)
+                    setZoom(data.zoom)
+                    setPanOffset(data.panOffset)
+                    loadImageFromURL(data.imageURL)
 
                 } catch (error) {
                     console.error("Error parsing JSON:", error);
@@ -431,41 +455,93 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     e.stopPropagation();
   };
 
+  const loadImageFromURL = (imageUrl: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const imgWidth = img.width;
+      const imgHeight = img.height;
+
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const aspectRatio = imgWidth / imgHeight;
+
+        let displayWidth = canvasWidth;
+        let displayHeight = canvasHeight;
+
+        if (aspectRatio > 1) {
+          displayHeight = canvasWidth / aspectRatio;
+        } else {
+          displayWidth = canvasHeight * aspectRatio;
+        }
+
+        const offsetX = (canvasWidth - displayWidth) / 2;
+        const offsetY = (canvasHeight - displayHeight) / 2;
+
+        setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
+        setImageSrc(imageUrl as string);
+      }
+    };
+
+    img.src = imageUrl as string; // Set the image source to the uploaded URL
+
+  }
+
+  const loadImageFromFile = (file: File) => {
+    // setIsLoading(true);
+    uploadFile(file, 'cmmi')
+    .then(imageUrl => {
+        console.log('uploaded', imageUrl)
+
+        loadImageFromURL(imageUrl as string)                                    
+
+    })
+    .catch(error => {
+        alert('Upload failed: ' + error)
+    })
+    .finally(() => {
+        // setIsLoading(false);
+    })
+
+  }
+  
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
     e.stopPropagation();
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      loadImage(file)
+      loadImageFromFile(file)
     }
   };
 
   const importAnnotations = ()=>{
-    console.log('importAnnotations()')
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept='.json'
-      input.addEventListener('change', (event: Event) => {
-        const target = event.target as HTMLInputElement;
+    handleNew(); // to clear previous settings
 
-        // Create a mock ChangeEvent
-        const changeEvent = {
-          ...event,
-          target,
-          currentTarget: target,
-          bubbles: true,
-          cancelBubble: false,
-          cancelable: true,
-          composed: true,
-          defaultPrevented: false,
-          isDefaultPrevented: () => false,
-          isPropagationStopped: () => false,
-          persist: () => {}
-        } as unknown as ChangeEvent<HTMLInputElement>;
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept='.json'
+    input.addEventListener('change', (event: Event) => {
+      const target = event.target as HTMLInputElement;
 
-        handleJSONFileInput(changeEvent);
-      });
-      input.click()
+      // Create a mock ChangeEvent
+      const changeEvent = {
+        ...event,
+        target,
+        currentTarget: target,
+        bubbles: true,
+        cancelBubble: false,
+        cancelable: true,
+        composed: true,
+        defaultPrevented: false,
+        isDefaultPrevented: () => false,
+        isPropagationStopped: () => false,
+        persist: () => {}
+      } as unknown as ChangeEvent<HTMLInputElement>;
+
+      handleJSONFileInput(changeEvent);
+    });
+    input.click()
   }
 
 
@@ -511,12 +587,62 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
 
               {/* File Input */}
               <div style={{ margin: '20px', display: 'flex', justifyContent: 'space-around' }}>
-                <input
+                {/* <input
                   type='file'
                   accept='image/*'
                   onChange={handleFileInput}
                   style={{ display: 'block', marginBottom: '10px' }}
-                />
+                /> */}
+                {/* <Button
+                  variant='outlined'
+                  onClick={()=>{
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept='image/*'
+                    input.addEventListener('change', (event: Event) => {
+                      const target = event.target as HTMLInputElement;
+                
+                      // Create a mock ChangeEvent
+                      const changeEvent = {
+                        ...event,
+                        target,
+                        currentTarget: target,
+                        bubbles: true,
+                        cancelBubble: false,
+                        cancelable: true,
+                        composed: true,
+                        defaultPrevented: false,
+                        isDefaultPrevented: () => false,
+                        isPropagationStopped: () => false,
+                        persist: () => {}
+                      } as unknown as ChangeEvent<HTMLInputElement>;
+                
+                      handleFileInput(changeEvent);
+                    });
+                    input.click()
+                
+                  }}
+                  sx={{ mt: '20px' }}
+                >
+                  Select File
+                </Button> */}
+
+                                <Button component='label' variant='contained' htmlFor='account-settings-upload-image' sx={{ mt: 2, whiteSpace: 'nowrap' }}>
+                                    Upload Image
+                                    <input
+                                        hidden
+                                        type='file'
+                                        onChange={event => {
+                                          if (event.target.files) {
+                                            loadImageFromFile(event.target.files[0])
+
+                                          }
+                                        }}
+                                        accept='image/png, image/jpeg'
+                                        id='account-settings-upload-image'
+                                    />
+                                </Button>
+
               </div>
             </div>
           }

@@ -33,6 +33,15 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Set up AWS S3 Storage Bucket for images
+
+Create S3 Storage Bucket (https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html), create an IAM user with access to storage bucket, and create access key under that user (https://repost.aws/knowledge-center/create-access-key).
+
+Add the following environmental variables into .env.local (for local development) and into host settings:
+MYAWS_ACCESS_KEY_ID
+MYAWS_SECRET_ACCESS_KEY
+MYAWS_S3_BUCKET_NAME
+
 ## Deploy to AWS Amplify
 
 This project was deployed on AWS Amplify. Here is a 3-step tutorial on how to connect your repository and deploy (https://docs.aws.amazon.com/amplify/latest/userguide/getting-started-next.html)
