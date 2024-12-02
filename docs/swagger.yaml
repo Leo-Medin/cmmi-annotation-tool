@@ -1,0 +1,68 @@
+openapi: 3.0.0
+info:
+  title: AI Vision API
+  description: API endpoint for processing vision requests using the OpenAI Vision API.
+  version: 1.0.0
+paths:
+  /api/ai:
+    post:
+      summary: Process a vision request
+      description: This endpoint processes a vision request and logs the request and response into the database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  description: The operation mode. Must be `process-vision-request`.
+                  example: process-vision-request
+                text:
+                  type: string
+                  description: The text input for the vision processing.
+                  example: "Analyze this image"
+                imageUrl:
+                  type: string
+                  format: uri
+                  description: The URL of the image to analyze.
+                  example: "http://example.com/image.jpg"
+              required:
+                - mode
+                - text
+                - imageUrl
+      responses:
+        '200':
+          description: Successful response with the vision processing result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: Indicates if the request was successful.
+                  response:
+                    type: string
+                    description: The result of the vision API call.
+        '400':
+          description: Bad request due to missing or invalid parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message.
+        '405':
+          description: Method not allowed. Only `POST` is supported.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message indicating the allowed methods.

@@ -72,6 +72,7 @@ const AnnotationsList = ({ annotations, setAnnotations }: { annotations: Annotat
                         // value={description}
                         defaultValue={description}
                         focused
+                        fullWidth
                         InputProps={{
                             className: 'annotation-textfield'
                         }}

@@ -4,6 +4,7 @@ import { Snackbar, Alert, Button } from '@mui/material';
 import AnnotationsList from './AnnotationsList';
 import { organismClasses } from '@/utils/appConstants';
 import { uploadFile } from '@/utils/cloud-storage-functions'
+import AIAssistant from './AIAssistant';
 
 const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: ShapeType }, ref) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -56,49 +57,6 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     importAnnotations,
     exportAnnotations
   }));
-
-  // const loadImage = (file: File) => {
-  //   const reader = new FileReader();
-  //   reader.onload = (event) => {
-  //     if (event.target?.result) {
-  //       const img = new Image();
-  //       img.src = event.target.result as string;
-  //       img.onload = () => {
-  //         const canvas = canvasRef.current;
-  //         if (canvas) {
-  //           const canvasWidth = canvas.width;
-  //           const canvasHeight = canvas.height;
-  //           const aspectRatio = img.width / img.height;
-
-  //           let displayWidth = canvasWidth;
-  //           let displayHeight = canvasHeight;
-
-  //           if (aspectRatio > 1) {
-  //             displayHeight = canvasWidth / aspectRatio;
-  //           } else {
-  //             displayWidth = canvasHeight * aspectRatio;
-  //           }
-
-  //           const offsetX = (canvasWidth - displayWidth) / 2;
-  //           const offsetY = (canvasHeight - displayHeight) / 2;
-
-  //           setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
-  //           setImageSrc(event.target?.result as string);
-  //         }
-  //       };
-  //     }
-  //   };
-  //   reader.readAsDataURL(file);
-
-  // }
-
-  // Handle file input
-  // const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>): void => {
-  //   const file = e.target.files?.[0];
-  //   if (file) {
-  //     loadImage(file)
-  //   }
-  // };
 
   // Handle zoom
   const handleZoom = (delta: number, centerX: number, centerY: number) => {
@@ -653,6 +611,10 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
       <div className='right-panel' style={{ width: innerWidth*20/100 }}>
         <AnnotationsList annotations={annotations} setAnnotations={setAnnotations} />
       </div>
+
+      {!!imageSrc &&
+        <AIAssistant imageUrl={imageSrc} />
+      }
 
       {!!snackbar && (
         <Snackbar
