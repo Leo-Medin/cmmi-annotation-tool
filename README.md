@@ -36,6 +36,22 @@ MYAWS_ACCESS_KEY_ID
 MYAWS_SECRET_ACCESS_KEY
 MYAWS_S3_BUCKET_NAME
 
+## Connect Postgres database to store user requests
+
+Add the following environmental variables into .env.local (for local development) and into host settings:
+DB_HOST
+DB_PORT
+DB_NAME
+DB_USER
+DB_PASSWORD
+
+## Get OpenAI access key
+
+(https://platform.openai.com/api-keys)
+
+Add the following environmental variables into .env.local (for local development) and into host settings:
+OPENAI_API_KEY
+
 ## Deploy to AWS Amplify
 
 This project was deployed on AWS Amplify. Here is a 3-step tutorial on how to connect your repository and deploy (https://docs.aws.amazon.com/amplify/latest/userguide/getting-started-next.html)

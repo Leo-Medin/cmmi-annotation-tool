@@ -68,8 +68,6 @@ const AnnotationsList = ({ annotations, setAnnotations }: { annotations: Annotat
 
             {editSelectedIndex === index &&
                     <TextField
-                        // className='annotation-textfield'
-                        // value={description}
                         defaultValue={description}
                         focused
                         fullWidth
@@ -98,10 +96,6 @@ const AnnotationsList = ({ annotations, setAnnotations }: { annotations: Annotat
           MenuListProps={{
             'aria-labelledby': 'basic-button'
           }}
-        //   sx={{
-        //     mt: "1px", "& .MuiMenu-paper": 
-        //       { backgroundColor: "rgba(0,0,0,0.7)", }, 
-        //   }}
         >
           {organismClasses.map((item, index) => {
 

@@ -20,7 +20,6 @@ export const vision = async ({text, imageUrl}: {text: string, imageUrl: string})
       },
     ],
   });
-  // console.log(response.choices[0]);
   
   return response.choices[0].message.content;
 }

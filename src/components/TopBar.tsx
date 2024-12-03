@@ -1,10 +1,6 @@
 import { Box, Button } from "@mui/material";
 import { ModeType, ShapeType } from '@/utils/appTypes';
 
-// interface AnotherChildProps {
-//     handleClickNew: () => void; // Accept handleClickNew as a prop
-// }
-
 const TopBar = ({ mode, setMode, shapeType, setShapeType, handleClickNew, handleClickImport, handleClickExport }: 
     { 
         mode: ModeType, 

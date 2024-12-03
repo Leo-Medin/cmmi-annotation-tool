@@ -68,8 +68,6 @@ export default async function ai(req: NextApiRequest, res: NextApiResponse) {
           text: req.body.text,
           imageUrl: req.body.imageUrl
         });
-        // console.log('response:', response);
-
 
         const query = `INSERT INTO ai_requests_log (arl_user_id, arl_text, arl_image_url, arl_response) values ($1, $2, $3, $4)`;
         await client.query(query, [1, req.body.text, req.body.imageUrl, response])

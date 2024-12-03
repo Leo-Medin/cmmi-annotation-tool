@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, ChangeEvent } from 'react';
 import { ModeType, ShapeType, Severity, AnnotationDef, ShapeDef } from '@/utils/appTypes';
-import { Snackbar, Alert, Button } from '@mui/material';
+import { Snackbar, Alert, Button, CircularProgress, Box } from '@mui/material';
 import AnnotationsList from './AnnotationsList';
 import { organismClasses } from '@/utils/appConstants';
 import { uploadFile } from '@/utils/cloud-storage-functions'
@@ -20,7 +20,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
   const [innerWidth, setInnerWidth] = useState(600);
   const [innerHeight, setInnerHeight] = useState(600);
   const [snackbar, setSnackbar] = useState<{ children: string; severity: Severity } | null>(null)
-  // const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const [imageDimensions, setImageDimensions] = useState<{
     width: number;
@@ -28,6 +28,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     offsetX: number;
     offsetY: number;
   }>({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
+  console.log('imageDimensions:', imageDimensions);
 
   useEffect(()=>{
     isDrawing.current = false; // Reset drawing state when switching modes
@@ -196,8 +197,6 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
 
       const rect = canvas.getBoundingClientRect();
       const { x: startX, y: startY } = startCoords.current;
-      // const x = rect.left + startX;
-      // const y = rect.top + startY;
       const x = (e.clientX - rect.left - panOffset.x) / zoom;
       const y = (e.clientY - rect.top - panOffset.y) / zoom;
       const width = x - startX;
@@ -338,34 +337,34 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     }
 
     const annotationsToExport = annotations.map((annotation) => {
+        const normalizedX = (annotation.shape.x - panOffset.x) / (imageDimensions.width * zoom);
+        const normalizedY = (annotation.shape.y - panOffset.y) / (imageDimensions.height * zoom);
+        const normalizedWidth = annotation.shape.width ? annotation.shape.width / (imageDimensions.width * zoom) : undefined;
+        const normalizedHeight = annotation.shape.height ? annotation.shape.height / (imageDimensions.height * zoom) : undefined;
+        const normalizedRadius = annotation.shape.radius ? annotation.shape.radius / (imageDimensions.width * zoom) : undefined;
+
         return {
+            ...annotation,
             shape: {
-                type: annotation.shape.type,
-                // x: annotation.shape.x * zoom + panOffset.x,  // Adjust position with zoom and pan
-                // y: annotation.shape.y * zoom + panOffset.y,
-                // width: annotation.shape.width ? annotation.shape.width * zoom : undefined,  // Adjust size with zoom
-                // height: annotation.shape.height ? annotation.shape.height * zoom : undefined,
-                // radius: annotation.shape.radius ? annotation.shape.radius * zoom : undefined,
-                x: annotation.shape.x,  // Adjust position with zoom and pan
-                y: annotation.shape.y,
-                width: annotation.shape.width ? annotation.shape.width : undefined,  // Adjust size with zoom
-                height: annotation.shape.height ? annotation.shape.height : undefined,
-                radius: annotation.shape.radius ? annotation.shape.radius : undefined,
+                ...annotation.shape,
+                x: normalizedX,
+                y: normalizedY,
+                width: normalizedWidth,
+                height: normalizedHeight,
+                radius: normalizedRadius,
             },
-            organismClass: annotation.organismClass,
-            color: annotation.color,
-            description: annotation.description
         };
     });
+
     const dataToExport = {
       imageURL: imageSrc,
       zoom,
       panOffset,
+      imageDimensions,
       annotations: annotationsToExport
     }
 
     // Convert annotations to JSON
-    // const json = JSON.stringify(annotationsToExport, null, 2); // Pretty-print with 2 spaces
     const json = JSON.stringify(dataToExport, null, 2); // Pretty-print with 2 spaces
 
     // Create a Blob with the JSON data
@@ -392,11 +391,44 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
                     // Parse the JSON data
                     const data = JSON.parse(event.target.result as string);
 
-                    setAnnotations(data.annotations)
-                    // setImageSrc(data.imageURL)
-                    setZoom(data.zoom)
-                    setPanOffset(data.panOffset)
                     loadImageFromURL(data.imageURL)
+                    .then((myImageDimensions) => {
+                        setZoom(data.zoom);
+                        setPanOffset(data.panOffset);
+
+                        const originalWidth = data.originalImageWidth;
+                        const originalHeight = data.originalImageHeight;
+                        const xc = data.displayWidth / myImageDimensions.width
+                        const yc = data.displayHeight / myImageDimensions.height
+                        console.log('originalWidth:', originalWidth, 'originalHeight:', originalHeight);
+                        console.log('after, myImageDimensions:', myImageDimensions)
+                        console.log('xc', xc, 'yc', yc)
+                        const preZoomCoef =  myImageDimensions.width / data.displayWidth;
+                        console.log('preZoomCoef:', preZoomCoef);
+
+                        setAnnotations(
+                            data.annotations.map((annotation: AnnotationDef) => {
+                                const denormalizedX = annotation.shape.x * myImageDimensions.width * data.zoom + data.panOffset.x;
+                                const denormalizedY = annotation.shape.y * myImageDimensions.height * data.zoom + data.panOffset.y;
+                                const denormalizedWidth = annotation.shape.width ? annotation.shape.width * myImageDimensions.width * data.zoom : undefined;
+                                const denormalizedHeight = annotation.shape.height ? annotation.shape.height * myImageDimensions.height * data.zoom : undefined;
+                                const denormalizedRadius = annotation.shape.radius ? annotation.shape.radius * myImageDimensions.width * data.zoom : undefined;
+
+                                return {
+                                    ...annotation,
+                                    shape: {
+                                        ...annotation.shape,
+                                        x: denormalizedX,
+                                        y: denormalizedY,
+                                        width: denormalizedWidth,
+                                        height: denormalizedHeight,
+                                        radius: denormalizedRadius,
+                                    },
+                                };
+                            })
+                        );
+                    });
+
 
                 } catch (error) {
                     console.error("Error parsing JSON:", error);
@@ -413,41 +445,64 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     e.stopPropagation();
   };
 
-  const loadImageFromURL = (imageUrl: string) => {
-    const img = new Image();
-    img.onload = () => {
-      const imgWidth = img.width;
-      const imgHeight = img.height;
+  const loadImageFromURL = (imageUrl: string): Promise<{
+    width: number,
+    height: number,
+    offsetX: number,
+    offsetY: number
+  }> => {
+      return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+              const imgWidth = img.width;
+              const imgHeight = img.height;
 
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const aspectRatio = imgWidth / imgHeight;
+              const canvas = canvasRef.current;
+              let myImageDimensions = {
+                width: 0,
+                height: 0,
+                offsetX: 0,
+                offsetY: 0
+              }
+              if (canvas) {
+                  const canvasWidth = canvas.width;
+                  const canvasHeight = canvas.height;
+                  const aspectRatio = imgWidth / imgHeight;
 
-        let displayWidth = canvasWidth;
-        let displayHeight = canvasHeight;
+                  let displayWidth = canvasWidth;
+                  let displayHeight = canvasHeight;
 
-        if (aspectRatio > 1) {
-          displayHeight = canvasWidth / aspectRatio;
-        } else {
-          displayWidth = canvasHeight * aspectRatio;
-        }
+                  if (aspectRatio > 1) {
+                      displayHeight = canvasWidth / aspectRatio;
+                  } else {
+                      displayWidth = canvasHeight * aspectRatio;
+                  }
 
-        const offsetX = (canvasWidth - displayWidth) / 2;
-        const offsetY = (canvasHeight - displayHeight) / 2;
+                  const offsetX = (canvasWidth - displayWidth) / 2;
+                  const offsetY = (canvasHeight - displayHeight) / 2;
 
-        setImageDimensions({ width: displayWidth, height: displayHeight, offsetX, offsetY });
-        setImageSrc(imageUrl as string);
-      }
-    };
+                  myImageDimensions = {
+                    width: displayWidth,
+                    height: displayHeight,
+                    offsetX,
+                    offsetY
+                  }
+                  setImageDimensions(myImageDimensions);
+                  setImageSrc(imageUrl);
+              }
+              resolve(myImageDimensions); // Resolve the Promise when the image is loaded
+          };
 
-    img.src = imageUrl as string; // Set the image source to the uploaded URL
+          img.onerror = (error) => {
+              reject(error); // Reject the Promise on error
+          };
 
-  }
+          img.src = imageUrl; // Set the image source to the uploaded URL
+      });
+  };
 
   const loadImageFromFile = (file: File) => {
-    // setIsLoading(true);
+    setIsLoading(true);
     uploadFile(file, 'cmmi')
     .then(imageUrl => {
         console.log('uploaded', imageUrl)
@@ -459,7 +514,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
         alert('Upload failed: ' + error)
     })
     .finally(() => {
-        // setIsLoading(false);
+        setIsLoading(false);
     })
 
   }
@@ -507,11 +562,6 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
     <div className='main-area-wrapper' style={{ height: innerHeight }}>
       <div className='canvas-panel' >
 
-          {/* Zoom controls */}
-          {/* <span>Zoom: </span>
-          <button onClick={() => handleZoom(0.1, 400, 300)}>+</button>
-          <button onClick={() => handleZoom(-0.1, 400, 300)}>-</button> */}
-
           {/* Canvas */}
           <canvas
             ref={canvasRef}
@@ -526,7 +576,7 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
           />
 
           {/* File Drag-and-Drop Area */}
-          {!imageSrc &&
+          {!imageSrc && !isLoading &&
             <div
               className='file-dropper'
               onDragOver={handleFileDragOver}
@@ -545,66 +595,32 @@ const MainArea = forwardRef(({ mode, shapeType }: { mode: ModeType, shapeType: S
 
               {/* File Input */}
               <div style={{ margin: '20px', display: 'flex', justifyContent: 'space-around' }}>
-                {/* <input
-                  type='file'
-                  accept='image/*'
-                  onChange={handleFileInput}
-                  style={{ display: 'block', marginBottom: '10px' }}
-                /> */}
-                {/* <Button
-                  variant='outlined'
-                  onClick={()=>{
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.accept='image/*'
-                    input.addEventListener('change', (event: Event) => {
-                      const target = event.target as HTMLInputElement;
-                
-                      // Create a mock ChangeEvent
-                      const changeEvent = {
-                        ...event,
-                        target,
-                        currentTarget: target,
-                        bubbles: true,
-                        cancelBubble: false,
-                        cancelable: true,
-                        composed: true,
-                        defaultPrevented: false,
-                        isDefaultPrevented: () => false,
-                        isPropagationStopped: () => false,
-                        persist: () => {}
-                      } as unknown as ChangeEvent<HTMLInputElement>;
-                
-                      handleFileInput(changeEvent);
-                    });
-                    input.click()
-                
-                  }}
-                  sx={{ mt: '20px' }}
-                >
-                  Select File
-                </Button> */}
 
-                                <Button component='label' variant='contained' htmlFor='account-settings-upload-image' sx={{ mt: 2, whiteSpace: 'nowrap' }}>
-                                    Upload Image
-                                    <input
-                                        hidden
-                                        type='file'
-                                        onChange={event => {
-                                          if (event.target.files) {
-                                            loadImageFromFile(event.target.files[0])
+                  <Button component='label' variant='contained' htmlFor='account-settings-upload-image' sx={{ mt: 2, whiteSpace: 'nowrap' }}>
+                      Upload Image
+                      <input
+                          hidden
+                          type='file'
+                          onChange={event => {
+                            if (event.target.files) {
+                              loadImageFromFile(event.target.files[0])
 
-                                          }
-                                        }}
-                                        accept='image/png, image/jpeg'
-                                        id='account-settings-upload-image'
-                                    />
-                                </Button>
+                            }
+                          }}
+                          accept='image/png, image/jpeg'
+                          id='account-settings-upload-image'
+                      />
+                  </Button>
 
               </div>
             </div>
           }
 
+          {!imageSrc && isLoading &&
+            <Box display="flex" justifyContent="center" marginTop={2}>
+              <CircularProgress />
+            </Box>
+          }
 
       </div>
 
